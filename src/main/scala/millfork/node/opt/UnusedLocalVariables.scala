@@ -78,64 +78,64 @@ object UnusedLocalVariables extends NodeOptimization {
         params.flatMap {
           case VariableExpression(_) => None
           case LiteralExpression(_, _) => None
-          case x => Some(ExpressionStatement(x).pos(s.position))
+          case x => Some(ExpressionStatement(x).pos(s.position, s.endPosition))
         }
       } else Some(s)
     case s@Assignment(VariableExpression(n), expr@VariableExpression(_)) =>
       if (localsToRemove(extractThingName(n))) {
-        if (localsToRemove(extractThingName(n))) None else Some(Assignment(BlackHoleExpression, expr).pos(s.position))
+        if (localsToRemove(extractThingName(n))) None else Some(Assignment(BlackHoleExpression, expr).pos(s.position, s.endPosition))
       } else Some(s)
     case s@Assignment(VariableExpression(n), LiteralExpression(_, _)) =>
       if (localsToRemove(extractThingName(n))) Nil else Some(s)
     case s@Assignment(VariableExpression(n), expr) =>
       if (localsToRemove(extractThingName(n))) {
-        if (expr.isPure) Nil else Some(ExpressionStatement(expr).pos(s.position))
+        if (expr.isPure) Nil else Some(ExpressionStatement(expr).pos(s.position, s.endPosition))
       }else Some(s)
     case s@Assignment(SeparateBytesExpression(he@VariableExpression(h), le@VariableExpression(l)), expr) =>
       if (localsToRemove(extractThingName(h))) {
         if (localsToRemove(extractThingName(l)))
-          Some(ExpressionStatement(expr).pos(s.position))
+          Some(ExpressionStatement(expr).pos(s.position, s.endPosition))
         else
           Some(Assignment(
             SeparateBytesExpression(
               BlackHoleExpression,
-              VariableExpression(l).pos(le.position)
-            ).pos(he.position),
+              VariableExpression(l).pos(le.position, le.endPosition)
+            ).pos(he.position, he.endPosition),
             expr
-          ).pos(s.position))
+          ).pos(s.position, s.endPosition))
       } else {
         if (localsToRemove(extractThingName(l)))
           Some(Assignment(
             SeparateBytesExpression(
-              VariableExpression(h).pos(he.position),
+              VariableExpression(h).pos(he.position, he.endPosition),
               BlackHoleExpression
-            ).pos(he.position),
+            ).pos(he.position, he.endPosition),
             expr
-          ).pos(s.position))
+          ).pos(s.position, s.endPosition))
         else
           Some(s)
       }
     case s@Assignment(SeparateBytesExpression(h, VariableExpression(l)), expr) =>
       if (localsToRemove(extractThingName(l))) Some(Assignment(
-        SeparateBytesExpression(h, BlackHoleExpression).pos(h.position),
+        SeparateBytesExpression(h, BlackHoleExpression).pos(h.position, h.endPosition),
         expr
-      ).pos(s.position))
+      ).pos(s.position, s.endPosition))
       else Some(s)
     case s@Assignment(SeparateBytesExpression(he@VariableExpression(h), l), expr) =>
       if (localsToRemove(extractThingName(h))) Some(Assignment(
-        SeparateBytesExpression(BlackHoleExpression, l).pos(he.position), expr
-      ).pos(s.position))
+        SeparateBytesExpression(BlackHoleExpression, l).pos(he.position, he.endPosition), expr
+      ).pos(s.position, s.endPosition))
       else Some(s)
     case s: IfStatement =>
       Some(s.copy(
         thenBranch = removeVariables(s.thenBranch, localsToRemove).asInstanceOf[List[ExecutableStatement]],
-        elseBranch = removeVariables(s.elseBranch, localsToRemove).asInstanceOf[List[ExecutableStatement]]).pos(s.position))
+        elseBranch = removeVariables(s.elseBranch, localsToRemove).asInstanceOf[List[ExecutableStatement]]).pos(s.position, s.endPosition))
     case s: WhileStatement =>
       Some(s.copy(
-        body = removeVariables(s.body, localsToRemove).asInstanceOf[List[ExecutableStatement]]).pos(s.position))
+        body = removeVariables(s.body, localsToRemove).asInstanceOf[List[ExecutableStatement]]).pos(s.position, s.endPosition))
     case s: DoWhileStatement =>
       Some(s.copy(
-        body = removeVariables(s.body, localsToRemove).asInstanceOf[List[ExecutableStatement]]).pos(s.position))
+        body = removeVariables(s.body, localsToRemove).asInstanceOf[List[ExecutableStatement]]).pos(s.position, s.endPosition))
     case s => Some(s)
   }
 

@@ -1478,7 +1478,7 @@ object Z80ExpressionCompiler extends AbstractExpressionCompiler[ZLine] {
             }
         }
       case _: StackVariablePointy =>
-        compileToHL(ctx, VariableExpression(i.name).pos(i.position)) ++
+        compileToHL(ctx, VariableExpression(i.name).pos(i.position, i.endPosition)) ++
           stashHLIfChanged(ctx, compileToBC(ctx, i.index #*# elementSize #+# extraOffset)) ++
           List.fill(elementSize)(ZLine.registers(ADD_16, ZRegister.HL, ZRegister.BC))
     }

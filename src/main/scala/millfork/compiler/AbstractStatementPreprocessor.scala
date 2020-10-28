@@ -70,6 +70,7 @@ abstract class AbstractStatementPreprocessor(protected val ctx: CompilationConte
   def optimizeStmt(stmt: ExecutableStatement, currentVarValues: VV): (ExecutableStatement, VV) = {
     var cv = currentVarValues
     val pos = stmt.position
+    val endPos = stmt.endPosition
     // stdlib:
     if (optimizeStdlib) {
       stmt match {
@@ -140,79 +141,79 @@ abstract class AbstractStatementPreprocessor(protected val ctx: CompilationConte
     stmt match {
       case Assignment(ve@VariableExpression(v), arg) if trackableVars(v) =>
         cv = search(arg, cv)
-        Assignment(ve, optimizeExpr(arg, cv)).pos(pos) -> (env.eval(optimizeExpr(arg, Map()), currentVarValues) match {
+        Assignment(ve, optimizeExpr(arg, cv)).pos(pos, endPos) -> (env.eval(optimizeExpr(arg, Map()), currentVarValues) match {
           case Some(c) => cv + (v -> c)
           case None => cv - v
         })
       case Assignment(target:DerefDebuggingExpression, arg) =>
         cv = search(arg, cv)
         cv = search(target, cv)
-        Assignment(optimizeExpr(target, cv).asInstanceOf[LhsExpression], optimizeExpr(arg, cv)).pos(pos) -> cv
+        Assignment(optimizeExpr(target, cv).asInstanceOf[LhsExpression], optimizeExpr(arg, cv)).pos(pos, endPos) -> cv
       case Assignment(target:DerefExpression, arg) =>
         cv = search(arg, cv)
         cv = search(target, cv)
-        Assignment(optimizeExpr(target, cv).asInstanceOf[LhsExpression], optimizeExpr(arg, cv)).pos(pos) -> cv
+        Assignment(optimizeExpr(target, cv).asInstanceOf[LhsExpression], optimizeExpr(arg, cv)).pos(pos, endPos) -> cv
       case Assignment(target:IndirectFieldExpression, arg) =>
         cv = search(arg, cv)
         cv = search(target, cv)
-        Assignment(optimizeExpr(target, cv).asInstanceOf[LhsExpression], optimizeExpr(arg, cv)).pos(pos) -> cv
+        Assignment(optimizeExpr(target, cv).asInstanceOf[LhsExpression], optimizeExpr(arg, cv)).pos(pos, endPos) -> cv
       case Assignment(target:IndexedExpression, arg) if isWordPointy(target.name) =>
         cv = search(arg, cv)
         cv = search(target, cv)
         Assignment(DerefExpression(
-          FunctionCallExpression("pointer", List(VariableExpression(target.name).pos(pos))).pos(pos) #+#
-            FunctionCallExpression("<<", List(optimizeExpr(target.index, cv), LiteralExpression(1, 1))).pos(pos),
-          0, env.getPointy(target.name).elementType).pos(pos), optimizeExpr(arg, cv)).pos(pos) -> cv
+          FunctionCallExpression("pointer", List(VariableExpression(target.name).pos(pos, endPos))).pos(pos, endPos) #+#
+            FunctionCallExpression("<<", List(optimizeExpr(target.index, cv), LiteralExpression(1, 1))).pos(pos, endPos),
+          0, env.getPointy(target.name).elementType).pos(pos, endPos), optimizeExpr(arg, cv)).pos(pos, endPos) -> cv
       case Assignment(target:IndexedExpression, arg) =>
         cv = search(arg, cv)
         cv = search(target, cv)
-        Assignment(optimizeExpr(target, cv).asInstanceOf[LhsExpression], optimizeExpr(arg, cv)).pos(pos) -> cv
+        Assignment(optimizeExpr(target, cv).asInstanceOf[LhsExpression], optimizeExpr(arg, cv)).pos(pos, endPos) -> cv
       case Assignment(ve, arg) =>
         cv = search(arg, cv)
         cv = search(ve, cv)
-        Assignment(ve, optimizeExpr(arg, cv)).pos(pos) -> cv
+        Assignment(ve, optimizeExpr(arg, cv)).pos(pos, endPos) -> cv
       case ExpressionStatement(expr@FunctionCallExpression(fname, List(VariableExpression(v), arg)))
         if ctx.env.maybeGet[Thing](fname).exists(i => i.isInstanceOf[MacroFunction]) =>
-        ExpressionStatement(optimizeExpr(expr, Map())).pos(pos) -> Map()
+        ExpressionStatement(optimizeExpr(expr, Map())).pos(pos, endPos) -> Map()
       case ExpressionStatement(expr@FunctionCallExpression("+=", List(VariableExpression(v), arg)))
         if currentVarValues.contains(v) =>
         cv = search(arg, cv)
-        ExpressionStatement(optimizeExpr(expr, cv - v)).pos(pos) -> (env.eval(expr, currentVarValues) match {
+        ExpressionStatement(optimizeExpr(expr, cv - v)).pos(pos, endPos) -> (env.eval(expr, currentVarValues) match {
           case Some(c) => if (cv.contains(v)) cv + (v -> (cv(v) + c)) else cv
           case None => cv - v
         })
       case ExpressionStatement(expr@FunctionCallExpression(op, List(VariableExpression(v), arg)))
         if op.endsWith("=") && op != ">=" && op != "<=" && op != ":=" =>
         cv = search(arg, cv)
-        ExpressionStatement(optimizeExpr(expr, cv - v)).pos(pos) -> (cv - v)
+        ExpressionStatement(optimizeExpr(expr, cv - v)).pos(pos, endPos) -> (cv - v)
       case ExpressionStatement(expr) =>
         cv = search(expr, cv)
-        ExpressionStatement(optimizeExpr(expr, cv)).pos(pos) -> cv
+        ExpressionStatement(optimizeExpr(expr, cv)).pos(pos, endPos) -> cv
       case ReturnStatement(Some(expr)) =>
         cv = search(expr, cv)
-        ReturnStatement(Some(optimizeExpr(expr, cv))).pos(pos) -> cv
+        ReturnStatement(Some(optimizeExpr(expr, cv))).pos(pos, endPos) -> cv
       case IfStatement(cond, th, el) =>
         cv = search(cond, cv)
         val c = optimizeExpr(cond, cv)
         val (t, vt) = optimizeStmts(th, cv)
         val (e, ve) = optimizeStmts(el, cv)
-        IfStatement(c, t, e).pos(pos) -> commonVV(vt, ve)
+        IfStatement(c, t, e).pos(pos, endPos) -> commonVV(vt, ve)
       case WhileStatement(cond, body, inc, labels) =>
         cv = search(cond, cv)
         val c = optimizeExpr(cond, Map())
         val (b, _) = optimizeStmts(body, Map())
         val (i, _) = optimizeStmts(inc, Map())
-        WhileStatement(c, b, i, labels).pos(pos) -> Map()
+        WhileStatement(c, b, i, labels).pos(pos, endPos) -> Map()
       case DoWhileStatement(body, inc, cond, labels) =>
         val c = optimizeExpr(cond, Map())
         val (b, _) = optimizeStmts(body, Map())
         val (i, _) = optimizeStmts(inc, Map())
-        DoWhileStatement(b, i, c, labels).pos(pos) -> Map()
+        DoWhileStatement(b, i, c, labels).pos(pos, endPos) -> Map()
       case f@ForEachStatement(v, pv, arr, body) =>
         for (a <- arr.right.getOrElse(Nil)) cv = search(a, cv)
         val a = arr.map(_.map(optimizeExpr(_, Map())))
         val (b, _) = optimizeStmts(body, Map())
-        ForEachStatement(v, pv, a, b).pos(pos) -> Map()
+        ForEachStatement(v, pv, a, b).pos(pos, endPos) -> Map()
       case f@ForStatement(v, st, en, dir, body, Nil) =>
 
         // detect a memset
@@ -253,15 +254,15 @@ abstract class AbstractStatementPreprocessor(protected val ctx: CompilationConte
                     case (array: ConstantPointy, (Some(VariableExpression(i)), offset)) if i == f.variable =>
                       // for i,start,until,end { array[i+offset] = source }
                       // println(s"Detected memset via array $array and index $i")
-                      return MemsetStatement(startOpt #+# GeneratedConstantExpression(array.value + offset, w), size, sourceOpt, f.direction, Some(f)).pos(pos) -> Map()
+                      return MemsetStatement(startOpt #+# GeneratedConstantExpression(array.value + offset, w), size, sourceOpt, f.direction, Some(f)).pos(pos, endPos) -> Map()
                     case (pointer, (Some(VariableExpression(i)), offset)) if i == f.variable =>
                       // for i,start,until,end { array[i+offset] = source }
                       // println(s"Detected memset via pointer $pointer and index $i")
-                      return MemsetStatement(startOpt #+# VariableExpression(pointy) #+# GeneratedConstantExpression(offset, w), size, sourceOpt, f.direction, Some(f)).pos(pos) -> Map()
+                      return MemsetStatement(startOpt #+# VariableExpression(pointy) #+# GeneratedConstantExpression(offset, w), size, sourceOpt, f.direction, Some(f)).pos(pos, endPos) -> Map()
                     case (_, (None, offset)) if pointy == f.variable =>
                       // for pointy,start,until,end { pointy[offset] = source }
                       // println(s"Detected memset via pointer $pointy alone")
-                      return MemsetStatement(startOpt #+# GeneratedConstantExpression(offset, w), size, sourceOpt, f.direction, Some(f)).pos(pos) -> Map()
+                      return MemsetStatement(startOpt #+# GeneratedConstantExpression(offset, w), size, sourceOpt, f.direction, Some(f)).pos(pos, endPos) -> Map()
                     case _ =>
                   }
                 case _ =>
@@ -276,14 +277,14 @@ abstract class AbstractStatementPreprocessor(protected val ctx: CompilationConte
             val s = optimizeExpr(st, Map())
             val e = optimizeExpr(en, Map())
             val (b, _) = optimizeStmts(body, Map())
-            ForStatement(v, s, e, dir, b).pos(pos) -> Map()
+            ForStatement(v, s, e, dir, b).pos(pos, endPos) -> Map()
         }
       case f@ForStatement(v, st, en, dir, body, increment) =>
         val s = optimizeExpr(st, Map())
         val e = optimizeExpr(en, Map())
         val (b, _) = optimizeStmts(body, Map())
         val (i, _) = optimizeStmts(increment, Map())
-        ForStatement(v, s, e, dir, b, i).pos(pos) -> Map()
+        ForStatement(v, s, e, dir, b, i).pos(pos, endPos) -> Map()
       case _ => stmt -> Map()
     }
   }
@@ -365,6 +366,7 @@ abstract class AbstractStatementPreprocessor(protected val ctx: CompilationConte
 
   def optimizeExpr(expr: Expression, currentVarValues: VV, optimizeSum: Boolean = false): Expression = {
     val pos = expr.position
+    val endPos = expr.endPosition
     // stdlib:
     if (optimizeStdlib) {
       expr match {
@@ -378,7 +380,7 @@ abstract class AbstractStatementPreprocessor(protected val ctx: CompilationConte
       }
     }
     implicit class StringToFunctionNameOps(val functionName: String) {
-      def <|(exprs: Expression*): Expression = FunctionCallExpression(functionName, exprs.toList).pos(exprs.head.position)
+      def <|(exprs: Expression*): Expression = FunctionCallExpression(functionName, exprs.toList).pos(exprs.head.position, exprs.head.endPosition)
     }
     // generic warnings:
     expr match {
@@ -400,7 +402,7 @@ abstract class AbstractStatementPreprocessor(protected val ctx: CompilationConte
       case IndirectFieldExpression(root, firstIndices, fieldPath) =>
         val b = env.get[Type]("byte")
         var ok = true
-        var result = optimizeExpr(root, currentVarValues).pos(pos)
+        var result = optimizeExpr(root, currentVarValues).pos(pos, endPos)
         def applyIndex(result: Expression, index: Expression): Expression = {
           AbstractExpressionCompiler.getExpressionType(env, env.log, result) match {
             case pt@PointerType(_, _, Some(target)) =>
@@ -479,13 +481,13 @@ abstract class AbstractStatementPreprocessor(protected val ctx: CompilationConte
           if (dot && ok) {
             val pointer = result match {
               case DerefExpression(inner, 0, _) =>
-                optimizeExpr(inner, currentVarValues).pos(pos)
+                optimizeExpr(inner, currentVarValues).pos(pos, endPos)
               case DerefExpression(inner, offset, targetType) =>
                 if (offset == 0) {
-                  ("pointer." + targetType.name) <| ("pointer" <| optimizeExpr(inner, currentVarValues).pos(pos))
+                  ("pointer." + targetType.name) <| ("pointer" <| optimizeExpr(inner, currentVarValues).pos(pos, endPos))
                 } else {
                   ("pointer." + targetType.name) <| (
-                    ("pointer" <| optimizeExpr(inner, currentVarValues).pos(pos)) #+# LiteralExpression(offset, 2)
+                    ("pointer" <| optimizeExpr(inner, currentVarValues).pos(pos, endPos)) #+# LiteralExpression(offset, 2)
                   )
                 }
               case IndexedExpression(name, index) =>
@@ -518,7 +520,7 @@ abstract class AbstractStatementPreprocessor(protected val ctx: CompilationConte
                   LiteralExpression(0, 1)
                 } else {
                   if (subvariables.head.arraySize.isDefined) ??? // TODO
-                  val inner = optimizeExpr(result, currentVarValues, optimizeSum = true).pos(pos)
+                  val inner = optimizeExpr(result, currentVarValues, optimizeSum = true).pos(pos, endPos)
                   val fieldOffset = subvariables.head.offset
                   val fieldType = subvariables.head.typ
                   pointerWrap match {
@@ -572,20 +574,20 @@ abstract class AbstractStatementPreprocessor(protected val ctx: CompilationConte
         }
         result
       case DerefDebuggingExpression(inner, 1) =>
-        DerefExpression(optimizeExpr(inner, currentVarValues, optimizeSum = true), 0, env.get[VariableType]("byte")).pos(pos)
+        DerefExpression(optimizeExpr(inner, currentVarValues, optimizeSum = true), 0, env.get[VariableType]("byte")).pos(pos, endPos)
       case DerefDebuggingExpression(inner, 2) =>
-        DerefExpression(optimizeExpr(inner, currentVarValues, optimizeSum = true), 0, env.get[VariableType]("word")).pos(pos)
+        DerefExpression(optimizeExpr(inner, currentVarValues, optimizeSum = true), 0, env.get[VariableType]("word")).pos(pos, endPos)
       case e@TextLiteralExpression(characters) =>
         val name = ctx.env.getTextLiteralArrayName(e)
-        VariableExpression(name).pos(pos)
+        VariableExpression(name).pos(pos, endPos)
       case VariableExpression(v) if currentVarValues.contains(v) =>
         val constant = currentVarValues(v)
         ctx.log.debug(s"Using node flow to replace $v with $constant", pos)
-        GeneratedConstantExpression(constant, getExpressionType(ctx, expr)).pos(pos)
+        GeneratedConstantExpression(constant, getExpressionType(ctx, expr)).pos(pos, endPos)
       case FunctionCallExpression(t1, List(FunctionCallExpression(t2, List(arg))))
         if optimize && pointlessDoubleCast(t1, t2, arg) =>
         ctx.log.debug(s"Pointless double cast $t1($t2(...))", pos)
-        optimizeExpr(FunctionCallExpression(t1, List(arg)).pos(pos), currentVarValues)
+        optimizeExpr(FunctionCallExpression(t1, List(arg)).pos(pos, endPos), currentVarValues)
       case FunctionCallExpression(t1, List(arg))
         if optimize && pointlessCast(t1, arg) =>
         ctx.log.debug(s"Pointless cast $t1(...)", pos)
@@ -604,7 +606,7 @@ abstract class AbstractStatementPreprocessor(protected val ctx: CompilationConte
         }
       case FunctionCallExpression("nonet", args) =>
         // Eliminating variables may eliminate carry
-        FunctionCallExpression("nonet", args.map(arg => optimizeExpr(arg, Map()))).pos(pos)
+        FunctionCallExpression("nonet", args.map(arg => optimizeExpr(arg, Map()))).pos(pos, endPos)
       case FunctionCallExpression(name, args) =>
         if (Environment.constOnlyBuiltinFunction(name)) {
           if (ctx.env.eval(expr).isEmpty) {
@@ -613,7 +615,7 @@ abstract class AbstractStatementPreprocessor(protected val ctx: CompilationConte
         }
         ctx.env.maybeGet[Thing](name) match {
           case Some(_: MacroFunction) =>
-            FunctionCallExpression(name, args.map(arg => optimizeExpr(arg, Map()))).pos(pos)
+            FunctionCallExpression(name, args.map(arg => optimizeExpr(arg, Map()))).pos(pos, endPos)
           case a =>
             if (ctx.options.flag(CompilationFlag.CallToOverlappingBankWarning)) {
               a match {
@@ -626,23 +628,23 @@ abstract class AbstractStatementPreprocessor(protected val ctx: CompilationConte
                 case _ =>
               }
             }
-            FunctionCallExpression(name, args.map(arg => optimizeExpr(arg, currentVarValues))).pos(pos)
+            FunctionCallExpression(name, args.map(arg => optimizeExpr(arg, currentVarValues))).pos(pos, endPos)
         }
       case SumExpression(expressions, false) if optimizeSum =>
         SumExpression(expressions.map{
           case (minus, arg) => minus -> optimizeExpr(arg, currentVarValues)
         }.filterNot{
           case (_, e) => env.eval(e).exists(_.isProvablyZero)
-        }, decimal = false).pos(pos)
+        }, decimal = false).pos(pos, endPos)
       case SumExpression(expressions, decimal) =>
         // don't collapse additions, let the later stages deal with it
         // expecially important when inside a nonet operation
-        SumExpression(expressions.map{case (minus, arg) => minus -> optimizeExpr(arg, currentVarValues)}, decimal).pos(pos)
+        SumExpression(expressions.map{case (minus, arg) => minus -> optimizeExpr(arg, currentVarValues)}, decimal).pos(pos, endPos)
       case IndexedExpression(name, index) =>
         val pointy = env.getPointy(name)
         val targetType = pointy.elementType
         targetType.alignedSize match {
-          case 1 => IndexedExpression(name, optimizeExpr(index, Map())).pos(pos)
+          case 1 => IndexedExpression(name, optimizeExpr(index, Map())).pos(pos, endPos)
           case _ =>
             val constantOffset: Option[Long] = env.eval(index) match {
               case Some(z) if z.isProvablyZero => Some(0L)
@@ -654,12 +656,12 @@ abstract class AbstractStatementPreprocessor(protected val ctx: CompilationConte
               case Some(o) if o >= 0 && o <= 256 - targetType.size =>
                 if (pointy.isArray) {
                   DerefExpression(
-                    "pointer" <| VariableExpression(name).pos(pos),
-                    o.toInt, pointy.elementType).pos(pos)
+                    "pointer" <| VariableExpression(name).pos(pos, endPos),
+                    o.toInt, pointy.elementType).pos(pos, endPos)
                 } else {
                   DerefExpression(
-                    VariableExpression(name).pos(pos),
-                    o.toInt, pointy.elementType).pos(pos)
+                    VariableExpression(name).pos(pos, endPos),
+                    o.toInt, pointy.elementType).pos(pos, endPos)
                 }
               case _ =>
                 val arraySizeInBytes = pointy match {
@@ -692,8 +694,8 @@ abstract class AbstractStatementPreprocessor(protected val ctx: CompilationConte
                   }
                 }
                 DerefExpression(
-                  ("pointer" <| VariableExpression(name).pos(pos)) #+# optimizeExpr(scaledIndex, Map()),
-                  0, pointy.elementType).pos(pos)
+                  ("pointer" <| VariableExpression(name).pos(pos, endPos)) #+# optimizeExpr(scaledIndex, Map()),
+                  0, pointy.elementType).pos(pos, endPos)
             }
         }
       case _ => expr // TODO

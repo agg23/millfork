@@ -1214,7 +1214,7 @@ object MosExpressionCompiler extends AbstractExpressionCompiler[AssemblyLine] {
                   compile(ctx, l, Some(b -> env.genRelativeVariable(target.toAddress, b, zeropage = target.zeropage)), branches) ++
                     compile(ctx, h, Some(b -> env.genRelativeVariable(target.toAddress + 1, b, zeropage = target.zeropage)), branches)
                 case n if n > 2 =>
-                  val zero = LiteralExpression(0,1).pos(expr.position)
+                  val zero = LiteralExpression(0,1).pos(expr.position, expr.endPosition)
                   compile(ctx, l, Some(b -> env.genRelativeVariable(target.toAddress, b, zeropage = target.zeropage)), branches) ++
                     compile(ctx, h, Some(b -> env.genRelativeVariable(target.toAddress + 1, b, zeropage = target.zeropage)), branches) ++
                     List.tabulate(n - 2)(i => compile(ctx, zero, Some(b -> env.genRelativeVariable(target.toAddress + (i + 2), b, zeropage = target.zeropage)), branches)).flatten
@@ -1233,7 +1233,7 @@ object MosExpressionCompiler extends AbstractExpressionCompiler[AssemblyLine] {
                       compile(ctx, h, Some(b -> StackVariable("", b, target.baseOffset + ctx.extraStackOffset + 1)), branches)
                   }
                 case n if n > 2 =>
-                  val zero = LiteralExpression(0, 1).pos(expr.position)
+                  val zero = LiteralExpression(0, 1).pos(expr.position, expr.endPosition)
                   if (ctx.options.flag(CompilationFlag.SoftwareStack)) {
                     compile(ctx, l, Some(b -> StackVariable("", b, target.baseOffset)), branches) ++
                       compile(ctx, h, Some(b -> StackVariable("", b, target.baseOffset + 1)), branches) ++
@@ -1664,7 +1664,7 @@ object MosExpressionCompiler extends AbstractExpressionCompiler[AssemblyLine] {
                 if (f.functionName == "%%=") {
                   BuiltIns.compileUnsignedWordByByteDivision(ctx, l, r, modulo = true) ++ compileByteStorage(ctx, MosRegister.A, l)
                 } else {
-                  compileAssignment(ctx, FunctionCallExpression("/", List(l, r)).pos(f.position), l)
+                  compileAssignment(ctx, FunctionCallExpression("/", List(l, r)).pos(f.position, f.endPosition), l)
                 }
               case 0 => Nil
               case _ =>

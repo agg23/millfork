@@ -23,7 +23,7 @@ object Z80BulkMemoryOperations {
     val sourceOffset = removeVariableOnce(ctx, f.variable, source.index).getOrElse(return compileForStatement(ctx, f)._1)
     if (!ctx.isConstant(sourceOffset)) return compileForStatement(ctx, f)._1
     val sourceIndexExpression = sourceOffset #+# f.start
-    val calculateSource = Z80ExpressionCompiler.calculateAddressToHL(ctx, IndexedExpression(source.name, sourceIndexExpression).pos(source.position), forWriting = false)
+    val calculateSource = Z80ExpressionCompiler.calculateAddressToHL(ctx, IndexedExpression(source.name, sourceIndexExpression).pos(source.position, source.endPosition), forWriting = false)
     compileMemoryBulk(ctx, target, f,
       useDEForTarget = true,
       preferDecreasing = false,
@@ -54,7 +54,7 @@ object Z80BulkMemoryOperations {
         case _ => targetOffset #+# f.start
       }
       val array = if (target.name != f.variable) target.name else "$0000"
-      val calculateAddress = Z80ExpressionCompiler.calculateAddressToHL(ctx, IndexedExpression(array, targetIndexExpression).pos(targetIndexExpression.position), forWriting = true)
+      val calculateAddress = Z80ExpressionCompiler.calculateAddressToHL(ctx, IndexedExpression(array, targetIndexExpression).pos(targetIndexExpression.position, targetIndexExpression.endPosition), forWriting = true)
       val calculateSize = f.direction match {
         case ForDirection.DownTo =>
           Z80ExpressionCompiler.stashHLIfChanged(ctx, Z80ExpressionCompiler.compileToBC(ctx, f.start #-# f.end))
@@ -217,7 +217,7 @@ object Z80BulkMemoryOperations {
           useDEForTarget = true,
           preferDecreasing = true,
           isSmall => if (isSmall) {
-            Z80ExpressionCompiler.calculateAddressToHL(ctx, IndexedExpression(targetForHL.name, targetForHLIndexExpression).pos(targetForHLIndexExpression.position), forWriting = false) -> c.initC
+            Z80ExpressionCompiler.calculateAddressToHL(ctx, IndexedExpression(targetForHL.name, targetForHLIndexExpression).pos(targetForHLIndexExpression.position, targetForHLIndexExpression.endPosition), forWriting = false) -> c.initC
           } else break,
           next => loads ++ (c.nextC :+ ZLine.register(next, ZRegister.HL)),
           _ => None
@@ -462,7 +462,7 @@ object Z80BulkMemoryOperations {
     }
     val next = if (decreasing) DEC_16 else INC_16
     val calculateSourceValue = loadA(next)
-    val calculateTargetAddress = Z80ExpressionCompiler.calculateAddressToHL(ctx, IndexedExpression(target.name, targetIndexExpression).pos(targetIndexExpression.position), forWriting = true)
+    val calculateTargetAddress = Z80ExpressionCompiler.calculateAddressToHL(ctx, IndexedExpression(target.name, targetIndexExpression).pos(targetIndexExpression.position, targetIndexExpression.endPosition), forWriting = true)
     val extraInitializationPair = extraAddressCalculations(smallCount)
     // TODO: figure the optimal compilation order
     val loading = if (useDEForTarget) {

@@ -98,11 +98,11 @@ class Z80StatementPreprocessor(ctx: CompilationContext, statements: List[Executa
     def replaceArrayIndexingsL(node: LhsExpression): LhsExpression = replaceArrayIndexingsE(node.asInstanceOf[Expression]).asInstanceOf[LhsExpression]
 
     def replaceArrayIndexingsS(node: ExecutableStatement): ExecutableStatement = node match {
-      case Assignment(t, s) => Assignment(replaceArrayIndexingsL(t), replaceArrayIndexingsE(s)).pos(node.position)
-      case ExpressionStatement(e) => ExpressionStatement(replaceArrayIndexingsE(e)).pos(node.position)
-      case IfStatement(c, t, e) => IfStatement(replaceArrayIndexingsE(c), replaceArrayIndexings(t), replaceArrayIndexings(e)).pos(node.position)
-      case WhileStatement(c, b, i, l) => WhileStatement(replaceArrayIndexingsE(c), replaceArrayIndexings(b), replaceArrayIndexings(i), l).pos(node.position)
-      case DoWhileStatement(b, i, c, l) => DoWhileStatement(replaceArrayIndexings(b), replaceArrayIndexings(i), replaceArrayIndexingsE(c), l).pos(node.position)
+      case Assignment(t, s) => Assignment(replaceArrayIndexingsL(t), replaceArrayIndexingsE(s)).pos(node.position, node.endPosition)
+      case ExpressionStatement(e) => ExpressionStatement(replaceArrayIndexingsE(e)).pos(node.position, node.endPosition)
+      case IfStatement(c, t, e) => IfStatement(replaceArrayIndexingsE(c), replaceArrayIndexings(t), replaceArrayIndexings(e)).pos(node.position, node.endPosition)
+      case WhileStatement(c, b, i, l) => WhileStatement(replaceArrayIndexingsE(c), replaceArrayIndexings(b), replaceArrayIndexings(i), l).pos(node.position, node.endPosition)
+      case DoWhileStatement(b, i, c, l) => DoWhileStatement(replaceArrayIndexings(b), replaceArrayIndexings(i), replaceArrayIndexingsE(c), l).pos(node.position, node.endPosition)
       case _ => throw new ArrayIndexOutOfBoundsException // TODO
     }
 

@@ -55,7 +55,7 @@ abstract class MacroExpander[T <: AbstractCode] {
       case _ =>
         println(stmt)
         ???
-    }).pos(stmt.position)
+    }).pos(stmt.position, stmt.endPosition)
   }
 
   def renameVariableX(stmt: Statement, paramName: String, target: String): ExecutableStatement = {
@@ -98,7 +98,7 @@ abstract class MacroExpander[T <: AbstractCode] {
       case _ =>
         println(stmt)
         ???
-    }).pos(stmt.position)
+    }).pos(stmt.position, stmt.endPosition)
   }
 
   def inlineFunction(ctx: CompilationContext, i: MacroFunction, actualParams: List[Expression], position: Option[Position]): (List[T], List[ExecutableStatement]) = {

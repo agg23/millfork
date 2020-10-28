@@ -199,6 +199,18 @@ object NodeFinder {
           lastNode = Some(nextNode)
           lastPosition = nextNode.position
         }
+
+        // val left = colOrNegOne(nextNode.position)
+        // val right = colOrNegOne(nextNode.position)
+        // val length = left - right
+
+        // if (
+        //   left <= column && column <= right && (lastLength.isEmpty || lastLength.get > length)
+        // ) {
+        //   lastNode = Some(nextNode)
+        //   lastLength = Some(length)
+        // }
+
       }
 
     lastNode

@@ -49,7 +49,8 @@ case class Z80Parser(filename: String,
     p <- position()
     typ <- identifier ~ SWS
     appc <- appcRegister | appcComplex
-  } yield ParameterDeclaration(typ, appc).pos(p)
+    endP <- position()
+  } yield ParameterDeclaration(typ, appc).pos(p, endP)
 
   // TODO: label and instruction in one line
   val asmLabel: P[ExecutableStatement] = ((".".? ~ identifier).! ~ HWS ~ ":" ~/ HWS).map(l => Z80AssemblyStatement(ZOpcode.LABEL, NoRegisters, None, VariableExpression(l), elidability = Elidability.Elidable))
@@ -549,9 +550,10 @@ case class Z80Parser(filename: String,
           log.error("Unsupported opcode " + opcode, Some(pos))
           imm(NOP)
       }
+      endP <- position()
     } yield {
       val (actualOpcode, registers, offset, param) = tuple4
-      Z80AssemblyStatement(actualOpcode, registers, offset, param, el).pos(pos)
+      Z80AssemblyStatement(actualOpcode, registers, offset, param, el).pos(pos, endP)
     }
   }
 
@@ -881,7 +883,7 @@ case class Z80Parser(filename: String,
   private def regA(opcode: ZOpcode.Value): P[(ZOpcode.Value, ZRegisters, Option[Expression], Expression)] =
     P("").map(_=>(opcode, OneRegister(ZRegister.A), None, zero))
 
-  override val asmStatement: P[ExecutableStatement] = (position("assembly statement") ~ P(asmLabel | asmMacro | arrayContentsForAsm | asmInstruction)).map { case (p, s) => s.pos(p) } // TODO: macros
+  override val asmStatement: P[ExecutableStatement] = (position("assembly statement") ~ P(asmLabel | asmMacro | arrayContentsForAsm | asmInstruction) ~ position()).map { case (p, s, endP) => s.pos(p, endP) } // TODO: macros
 
   override def validateAsmFunctionBody(p: Position, flags: Set[String], name: String, statements: Option[List[Statement]]): Unit = {
     if (!options.flag(CompilationFlag.BuggyCodeWarning)) return

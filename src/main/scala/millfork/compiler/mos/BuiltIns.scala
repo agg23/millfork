@@ -912,7 +912,7 @@ object BuiltIns {
             } else {
               val reg = ctx.env.get[ThingInMemory]("__reg.loword")
               return lc ++ List(AssemblyLine.zeropage(STA, reg), AssemblyLine.zeropage(STX, reg, 1)) ++ compileWordComparison(
-                ctx, effectiveComparisonType, VariableExpression("__reg.loword").pos(lhs.position), rhs, BranchIfTrue(x))
+                ctx, effectiveComparisonType, VariableExpression("__reg.loword").pos(lhs.position, lhs.endPosition), rhs, BranchIfTrue(x))
             }
           case (
             List(AssemblyLine0(LDA, Absolute | Immediate | ZeroPage | LongAbsolute, _), AssemblyLine0(LDX, Absolute | Immediate | ZeroPage | LongAbsolute, _)),
@@ -925,7 +925,7 @@ object BuiltIns {
             } else {
               val reg = ctx.env.get[ThingInMemory]("__reg.loword")
               return rc ++ List(AssemblyLine.zeropage(STA, reg), AssemblyLine.zeropage(STX, reg, 1)) ++ compileWordComparison(
-                ctx, effectiveComparisonType, lhs, VariableExpression("__reg.loword").pos(rhs.position), BranchIfTrue(x))
+                ctx, effectiveComparisonType, lhs, VariableExpression("__reg.loword").pos(rhs.position, rhs.endPosition), BranchIfTrue(x))
             }
           case _ =>
             // TODO comparing expressions

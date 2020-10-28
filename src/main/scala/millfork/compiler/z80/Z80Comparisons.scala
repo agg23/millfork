@@ -17,8 +17,8 @@ object Z80Comparisons {
     handleConstantComparison(ctx, compType, l, r, branches).foreach(return _)
     if (ComparisonType.isSigned(compType) && !ctx.options.flag(CompilationFlag.EmitZ80Opcodes)) {
       return compile8BitComparison(ctx, ComparisonType.toUnsigned(compType),
-        FunctionCallExpression("^", List(l, LiteralExpression(0x80, 1).pos(l.position))).pos(l.position),
-        FunctionCallExpression("^", List(r, LiteralExpression(0x80, 1).pos(r.position))).pos(r.position),
+        FunctionCallExpression("^", List(l, LiteralExpression(0x80, 1).pos(l.position, l.endPosition))).pos(l.position, l.endPosition),
+        FunctionCallExpression("^", List(r, LiteralExpression(0x80, 1).pos(r.position, r.endPosition))).pos(r.position, r.endPosition),
         branches)
     }
     (ctx.env.eval(r), compType) match {

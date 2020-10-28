@@ -311,6 +311,8 @@ class MfLanguageServer(context: Context, options: CompilationOptions) {
       )
 
       if (statement.isDefined) {
+        logEvent(TelemetryEvent("Found statement beneath cursor", statement))
+
         val (_, declarationContent) = statement.get
         val formatting = NodeFormatter.symbol(declarationContent)
 
@@ -369,6 +371,8 @@ class MfLanguageServer(context: Context, options: CompilationOptions) {
       position: Position
   ): Option[(String, Node)] = {
     val moduleName = moduleNameForPath(documentPath)
+
+    logEvent(TelemetryEvent("Foo", cachedModules))
 
     val node = NodeFinder.findNodeAtPosition(
       moduleName,

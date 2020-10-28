@@ -1379,7 +1379,7 @@ class Environment(val parent: Option[Environment], val prefix: String, val cpuFa
             env,
             stackVariablesSize,
             stmt.address.map(a => this.eval(a).getOrElse(errorConstant(s"Address of `${stmt.name}` is not a constant", Some(a), a.position))),
-            executableStatements ++ paramForAutomaticReturn.map(param => ReturnStatement(param).pos(executableStatements.lastOption.fold(stmt.position)(_.position))),
+            executableStatements ++ paramForAutomaticReturn.map(param => ReturnStatement(param).pos(executableStatements.lastOption.fold(stmt.position)(_.position), executableStatements.lastOption.fold(stmt.endPosition)(_.endPosition))),
             hasElidedReturnVariable = hasElidedReturnVariable,
             interrupt = stmt.interrupt,
             kernalInterrupt = stmt.kernalInterrupt,
@@ -1413,7 +1413,7 @@ class Environment(val parent: Option[Environment], val prefix: String, val cpuFa
       case _ => ???
     }
     if (maybeGet[Thing](name).isEmpty) {
-      root.registerArray(ArrayDeclarationStatement(name, None, None, "byte", None, const = true, Some(LiteralContents(literal.characters)), None, options.isBigEndian).pos(literal.position), options)
+      root.registerArray(ArrayDeclarationStatement(name, None, None, "byte", None, const = true, Some(LiteralContents(literal.characters)), None, options.isBigEndian).pos(literal.position, literal.endPosition), options)
     }
     name
   }

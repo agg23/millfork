@@ -36,7 +36,8 @@ case class M6809Parser(filename: String,
     p <- position()
     typ <- identifier ~ SWS
     appc <- appcRegister | appcComplex
-  } yield ParameterDeclaration(typ, appc).pos(p)
+    endP <- position()
+  } yield ParameterDeclaration(typ, appc).pos(p, endP)
 
   def fastAlignmentForArrays: MemoryAlignment = WithinPageAlignment
 
@@ -115,7 +116,7 @@ case class M6809Parser(filename: String,
     for {
       _ <- !"}"
       elid <- elidable
-      position <- position("assembly statement")
+      p <- position("assembly statement")
       (op, addrModeOverride) <- asmOpcode
       (addrMode, param) <- op match {
         case TFR | EXG =>
@@ -124,21 +125,22 @@ case class M6809Parser(filename: String,
           SWS ~/ anyRegister.rep(sep = HWS ~ "," ~/ HWS).map(regs => RegisterSet.cleaned(regs.toSet) -> LiteralExpression(0, 1))
         case _ => asmParameter
       }
+      endP <- position()
     } yield {
       val effAddrMode = (addrModeOverride, addrMode) match {
         case (Some(InherentA), Inherent) => InherentA
         case (Some(InherentB), Inherent) => InherentB
         case (Some(InherentA | InherentB), _) =>
-          log.error("Inherent accumulator instructions cannot have parameters", Some(position))
+          log.error("Inherent accumulator instructions cannot have parameters", Some(p))
           addrMode
         case (Some(LongRelative), Absolute(false)) => LongRelative
         case (Some(LongRelative), _) =>
-          log.error("Branching instructions cannot have different addressing modes", Some(position))
+          log.error("Branching instructions cannot have different addressing modes", Some(p))
           addrMode
         case (None, Absolute(false)) if MOpcode.Branching(op) => Relative
         case (None, _) => addrMode
       }
-      M6809AssemblyStatement(op, effAddrMode, param, elid).pos(position)
+      M6809AssemblyStatement(op, effAddrMode, param, elid).pos(p, endP)
     }
   }
 
@@ -147,7 +149,7 @@ case class M6809Parser(filename: String,
 
   val asmMacro: P[ExecutableStatement] = ("+" ~/ HWS ~/ functionCall(false)).map(ExpressionStatement)
 
-  val asmStatement: P[ExecutableStatement] = (position("assembly statement") ~ P(asmLabel | asmMacro | arrayContentsForAsm | asmInstruction)).map { case (p, s) => s.pos(p) }
+  val asmStatement: P[ExecutableStatement] = (position("assembly statement") ~ P(asmLabel | asmMacro | arrayContentsForAsm | asmInstruction) ~ position()).map { case (p, s, endP) => s.pos(p, endP) }
 
 
   override def validateAsmFunctionBody(p: Position, flags: Set[String], name: String, statements: Option[List[Statement]]): Unit = {

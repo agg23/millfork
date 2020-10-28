@@ -114,6 +114,7 @@ abstract class AbstractStatementCompiler[T <: AbstractCode] {
     // TODO: special faster cases
     val extraIncrement = f.extraIncrement
     val p = f.position
+    val endP = f.endPosition
     val vex = VariableExpression(f.variable)
     val indexType = ctx.env.get[Variable](f.variable).typ
     val arithmetic = indexType.isArithmetic
@@ -122,20 +123,20 @@ abstract class AbstractStatementCompiler[T <: AbstractCode] {
       compile(ctx, f.body)
       return Nil -> Nil
     }
-    val one = LiteralExpression(1, 1).pos(p)
+    val one = LiteralExpression(1, 1).pos(p, endP)
     val increment = if (arithmetic) {
-      ExpressionStatement(FunctionCallExpression("+=", List(vex, one)).pos(p)).pos(p)
+      ExpressionStatement(FunctionCallExpression("+=", List(vex, one)).pos(p, endP)).pos(p, endP)
     } else {
       Assignment(vex, FunctionCallExpression(indexType.name, List(
-        FunctionCallExpression("byte", List(vex)).pos(p) #+# 1
-      )).pos(p)).pos(p)
+        FunctionCallExpression("byte", List(vex)).pos(p, endP) #+# 1
+      )).pos(p, endP)).pos(p, endP)
     }
     val decrement = if (arithmetic) {
-          ExpressionStatement(FunctionCallExpression("-=", List(vex, one)).pos(p)).pos(p)
+          ExpressionStatement(FunctionCallExpression("-=", List(vex, one)).pos(p, endP)).pos(p, endP)
         } else {
           Assignment(vex, FunctionCallExpression(indexType.name, List(
-            FunctionCallExpression("byte", List(vex)).pos(p) #-# 1
-          )).pos(p)).pos(p)
+            FunctionCallExpression("byte", List(vex)).pos(p, endP) #-# 1
+          )).pos(p, endP)).pos(p, endP)
         }
     val names = Set("", "for", f.variable)
 
@@ -163,26 +164,26 @@ abstract class AbstractStatementCompiler[T <: AbstractCode] {
 
       case (ForDirection.Until | ForDirection.ParallelUntil, Some(NumericConstant(s, ssize)), Some(NumericConstant(e, _))) if s == e - 1 =>
         val end = ctx.nextLabel("of")
-        val (main, extra) = compile(ctx.addLabels(names, Label(end), Label(end)), Assignment(vex, f.start).pos(p) :: f.body)
+        val (main, extra) = compile(ctx.addLabels(names, Label(end), Label(end)), Assignment(vex, f.start).pos(p, endP) :: f.body)
         main ++ labelChunk(end) -> extra
       case (ForDirection.Until | ForDirection.ParallelUntil, Some(NumericConstant(s, ssize)), Some(NumericConstant(e, _))) if s == e =>
         Nil -> Nil
 
       case (ForDirection.To | ForDirection.ParallelTo, Some(NumericConstant(s, ssize)), Some(NumericConstant(e, _))) if s == e =>
         val end = ctx.nextLabel("of")
-        val (main, extra) = compile(ctx.addLabels(names, Label(end), Label(end)), Assignment(vex, f.start).pos(p) :: f.body)
+        val (main, extra) = compile(ctx.addLabels(names, Label(end), Label(end)), Assignment(vex, f.start).pos(p, endP) :: f.body)
         main ++ labelChunk(end) -> extra
 
       case (ForDirection.To | ForDirection.ParallelTo, _, Some(NumericConstant(255, _))) if indexType.size == 1 =>
         compile(ctx, List(
-          Assignment(vex, f.start).pos(p),
-          DoWhileStatement(f.body, increment :: extraIncrement, FunctionCallExpression("!=", List(vex, LiteralExpression(0, 1).pos(p))), names).pos(p)
+          Assignment(vex, f.start).pos(p, endP),
+          DoWhileStatement(f.body, increment :: extraIncrement, FunctionCallExpression("!=", List(vex, LiteralExpression(0, 1).pos(p, endP))), names).pos(p, endP)
         ))
 
       case (ForDirection.To | ForDirection.ParallelTo, _, Some(NumericConstant(0xffff, _))) if indexType.size == 2 =>
         compile(ctx, List(
-          Assignment(vex, f.start).pos(p),
-          DoWhileStatement(f.body, increment :: extraIncrement, FunctionCallExpression("!=", List(vex, LiteralExpression(0, 2).pos(p))), names).pos(p)
+          Assignment(vex, f.start).pos(p, endP),
+          DoWhileStatement(f.body, increment :: extraIncrement, FunctionCallExpression("!=", List(vex, LiteralExpression(0, 2).pos(p, endP))), names).pos(p, endP)
         ))
 
       case (ForDirection.Until | ForDirection.ParallelUntil, Some(c), Some(NumericConstant(256, _)))
@@ -193,60 +194,60 @@ abstract class AbstractStatementCompiler[T <: AbstractCode] {
         // INX
         // BNE loop
         compile(ctx, List(
-          Assignment(vex, f.start).pos(p),
-          DoWhileStatement(f.body, increment :: extraIncrement, FunctionCallExpression("!=", List(vex, LiteralExpression(0, 1).pos(p))), names).pos(p)
+          Assignment(vex, f.start).pos(p, endP),
+          DoWhileStatement(f.body, increment :: extraIncrement, FunctionCallExpression("!=", List(vex, LiteralExpression(0, 1).pos(p, endP))), names).pos(p, endP)
         ))
 
       case (ForDirection.ParallelUntil, Some(NumericConstant(0, _)), Some(NumericConstant(e, _))) if e > 0 =>
         compile(ctx, List(
           Assignment(vex, f.end),
-          DoWhileStatement(Nil, decrement :: (f.body ++ extraIncrement), FunctionCallExpression("!=", List(vex, f.start)), names).pos(p)
+          DoWhileStatement(Nil, decrement :: (f.body ++ extraIncrement), FunctionCallExpression("!=", List(vex, f.start)), names).pos(p, endP)
         ))
 
       case (ForDirection.Until, Some(NumericConstant(s, _)), Some(NumericConstant(e, _))) if s >= 0 && e > 0 && s < e =>
         compile(ctx, List(
-          Assignment(vex, f.start).pos(p),
-          DoWhileStatement(f.body, increment :: extraIncrement, FunctionCallExpression("!=", List(vex, f.end)).pos(p), names).pos(p)
+          Assignment(vex, f.start).pos(p, endP),
+          DoWhileStatement(f.body, increment :: extraIncrement, FunctionCallExpression("!=", List(vex, f.end)).pos(p, endP), names).pos(p, endP)
         ))
 
       case (ForDirection.DownTo, Some(NumericConstant(s, ssize)), Some(NumericConstant(e, esize))) if s == e =>
         val end = ctx.nextLabel("of")
-        val (main, extra) = compile(ctx.addLabels(names, Label(end), Label(end)), Assignment(vex, LiteralExpression(s, ssize)).pos(p) :: f.body)
+        val (main, extra) = compile(ctx.addLabels(names, Label(end), Label(end)), Assignment(vex, LiteralExpression(s, ssize)).pos(p, endP) :: f.body)
         main ++ labelChunk(end) -> extra
       case (ForDirection.DownTo, Some(NumericConstant(s, 1)), Some(NumericConstant(0, _))) if s > 0 =>
         compile(ctx, List(
           Assignment(
             vex,
             FunctionCallExpression("lo", List(
-              (f.start #+# LiteralExpression(1, 2).pos(p)).pos(p)
-            )).pos(p)
-          ).pos(p),
+              (f.start #+# LiteralExpression(1, 2).pos(p, endP)).pos(p, endP)
+            )).pos(p, endP)
+          ).pos(p, endP),
           DoWhileStatement(
             decrement :: f.body,
             extraIncrement,
-            FunctionCallExpression("!=", List(vex, f.end)).pos(p), names).pos(p)
+            FunctionCallExpression("!=", List(vex, f.end)).pos(p, endP), names).pos(p, endP)
         ))
       case (ForDirection.DownTo, Some(NumericConstant(s, ssize)), Some(NumericConstant(0, _))) if s > 0 =>
         compile(ctx, List(
           Assignment(
             vex,
             f.start #-# 1
-          ).pos(p),
+          ).pos(p, endP),
           DoWhileStatement(
             decrement :: f.body,
             extraIncrement,
-            FunctionCallExpression("!=", List(vex, f.end)).pos(p),
+            FunctionCallExpression("!=", List(vex, f.end)).pos(p, endP),
             names
-          ).pos(p)
+          ).pos(p, endP)
         ))
 
 
       case (ForDirection.Until | ForDirection.ParallelUntil, _, _) =>
         compile(ctx, List(
-          Assignment(vex, f.start).pos(p),
+          Assignment(vex, f.start).pos(p, endP),
           WhileStatement(
-            FunctionCallExpression("!=", List(vex, f.end)).pos(p),
-            f.body, increment :: extraIncrement, names).pos(p)
+            FunctionCallExpression("!=", List(vex, f.end)).pos(p, endP),
+            f.body, increment :: extraIncrement, names).pos(p, endP)
         ))
 //          case (ForDirection.To | ForDirection.ParallelTo, _, Some(NumericConstant(n, _))) if n > 0 && n < 255 =>
 //            compile(ctx, List(
@@ -257,28 +258,28 @@ abstract class AbstractStatementCompiler[T <: AbstractCode] {
 //            ))
       case (ForDirection.To | ForDirection.ParallelTo, _, _) =>
         compile(ctx, List(
-          Assignment(vex, f.start).pos(p),
+          Assignment(vex, f.start).pos(p, endP),
           WhileStatement(
-            VariableExpression("true").pos(p),
+            VariableExpression("true").pos(p, endP),
             f.body,
             List(IfStatement(
-              FunctionCallExpression("==", List(vex, f.end)).pos(p),
-              List(BreakStatement(f.variable).pos(p)),
+              FunctionCallExpression("==", List(vex, f.end)).pos(p, endP),
+              List(BreakStatement(f.variable).pos(p, endP)),
               increment :: extraIncrement
             )),
             names)
         ))
       case (ForDirection.DownTo, _, _) =>
         // TODO: smarter countdown if end is not a constant
-        val endMinusOne = (f.end #-# 1).pos(p)
+        val endMinusOne = (f.end #-# 1).pos(p, endP)
         compile(ctx, List(
-          Assignment(vex, f.start).pos(p),
+          Assignment(vex, f.start).pos(p, endP),
           DoWhileStatement(
             f.body,
             decrement :: extraIncrement,
-            FunctionCallExpression("!=", List(vex, endMinusOne)).pos(p),
+            FunctionCallExpression("!=", List(vex, endMinusOne)).pos(p, endP),
             names
-          ).pos(p)
+          ).pos(p, endP)
         ))
     }
   }
@@ -295,7 +296,7 @@ abstract class AbstractStatementCompiler[T <: AbstractCode] {
       case s: CompoundStatement => if (s.loopVariable == variable) s.flatMap(inner2) else s.flatMap(inner)
       case _: BreakStatement => None
       case _: ReturnStatement => None
-      case s@ContinueStatement(l) if l == variable => Some(returnAssemblyStatement.pos(s.position))
+      case s@ContinueStatement(l) if l == variable => Some(returnAssemblyStatement.pos(s.position, s.endPosition))
       case _: ContinueStatement => None
       case s => Some(s)
     }
@@ -304,8 +305,8 @@ abstract class AbstractStatementCompiler[T <: AbstractCode] {
       case s: CompoundStatement => s.flatMap(inner)
       case _: BreakStatement => None
       case _: ReturnStatement => None
-      case s@ContinueStatement(l) if l == variable => Some(returnAssemblyStatement.pos(s.position))
-      case s@ContinueStatement("") => Some(returnAssemblyStatement.pos(s.position))
+      case s@ContinueStatement(l) if l == variable => Some(returnAssemblyStatement.pos(s.position, s.endPosition))
+      case s@ContinueStatement("") => Some(returnAssemblyStatement.pos(s.position, s.endPosition))
       case s => Some(s)
     }
     val list = stmts.map(toplevel)
@@ -405,9 +406,9 @@ abstract class AbstractStatementCompiler[T <: AbstractCode] {
       case 1 =>
         val tuple = compile(ctx,
           Assignment(
-            VariableExpression(f.variable).pos(f.position),
+            VariableExpression(f.variable).pos(f.position, f.endPosition),
             values.head
-          ).pos(f.position)
+          ).pos(f.position, f.endPosition)
         )
         tuple._1 ++ inlinedBody -> tuple._2
       case valueCount =>
@@ -426,7 +427,7 @@ abstract class AbstractStatementCompiler[T <: AbstractCode] {
             val callLabel = ctx.nextLabel("fe")
             val calls = values.flatMap(expr => compile(ctx,
               Assignment(
-                VariableExpression(f.variable).pos(f.position),
+                VariableExpression(f.variable).pos(f.position, f.endPosition),
                 expr
               )
             )._1 ++ callChunk(Label(callLabel)))
@@ -439,7 +440,7 @@ abstract class AbstractStatementCompiler[T <: AbstractCode] {
         val inlinedEverything = values.flatMap { expr =>
           val tuple = compile(ctx,
             Assignment(
-              VariableExpression(f.variable).pos(f.position),
+              VariableExpression(f.variable).pos(f.position, f.endPosition),
               expr
             )
           )
